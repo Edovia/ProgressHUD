@@ -21,6 +21,8 @@
 
 #import "ProgressHUD.h"
 
+#define MOTION_EFFECT_MULTIPLIER 9
+
 @implementation ProgressHUD
 
 @synthesize interaction, window, background, hud, spinner, image, label;
@@ -49,7 +51,7 @@
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 {
 	[self shared].interaction = YES;
-	[[self shared] hudMake:status imgage:nil spin:YES hide:NO];
+	[[self shared] hudMake:status image:nil spin:YES hide:NO];
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -57,7 +59,7 @@
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 {
 	[self shared].interaction = Interaction;
-	[[self shared] hudMake:status imgage:nil spin:YES hide:NO];
+	[[self shared] hudMake:status image:nil spin:YES hide:NO];
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -65,7 +67,13 @@
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 {
 	[self shared].interaction = YES;
-	[[self shared] hudMake:status imgage:HUD_IMAGE_SUCCESS spin:NO hide:YES];
+	[[self shared] hudMake:status image:HUD_IMAGE_SUCCESS spin:NO hide:YES];
+}
+
++ (void)showSuccess:(NSString *)status withImage:(UIImage*)image
+{
+    [self shared].interaction = YES;
+	[[self shared] hudMake:status image:image spin:NO hide:YES];
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -73,7 +81,7 @@
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 {
 	[self shared].interaction = Interaction;
-	[[self shared] hudMake:status imgage:HUD_IMAGE_SUCCESS spin:NO hide:YES];
+	[[self shared] hudMake:status image:HUD_IMAGE_SUCCESS spin:NO hide:YES];
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -81,7 +89,7 @@
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 {
 	[self shared].interaction = YES;
-	[[self shared] hudMake:status imgage:HUD_IMAGE_ERROR spin:NO hide:YES];
+	[[self shared] hudMake:status image:HUD_IMAGE_ERROR spin:NO hide:YES];
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -89,7 +97,7 @@
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 {
 	[self shared].interaction = Interaction;
-	[[self shared] hudMake:status imgage:HUD_IMAGE_ERROR spin:NO hide:YES];
+	[[self shared] hudMake:status image:HUD_IMAGE_ERROR spin:NO hide:YES];
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -112,28 +120,29 @@
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
-- (void)hudMake:(NSString *)status imgage:(UIImage *)img spin:(BOOL)spin hide:(BOOL)hide
+- (void)hudMake:(NSString *)status image:(UIImage *)img spin:(BOOL)spin hide:(BOOL)hide
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 {
-	[self hudCreate];
+	[self hudCreate:img.size];
 	//---------------------------------------------------------------------------------------------------------------------------------------------
 	label.text = status;
 	label.hidden = (status == nil) ? YES : NO;
 	//---------------------------------------------------------------------------------------------------------------------------------------------
 	image.image = img;
 	image.hidden = (img == nil) ? YES : NO;
+    
 	//---------------------------------------------------------------------------------------------------------------------------------------------
 	if (spin) [spinner startAnimating]; else [spinner stopAnimating];
 	//---------------------------------------------------------------------------------------------------------------------------------------------
 	[self hudOrient];
-	[self hudSize];
+	[self hudSize:img.size];
 	[self hudShow];
 	//---------------------------------------------------------------------------------------------------------------------------------------------
 	if (hide) [NSThread detachNewThreadSelector:@selector(timedHide) toTarget:self withObject:nil];
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
-- (void)hudCreate
+- (void)hudCreate:(CGSize)imageSize
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 {
 	//---------------------------------------------------------------------------------------------------------------------------------------------
@@ -171,7 +180,7 @@
 	//---------------------------------------------------------------------------------------------------------------------------------------------
 	if (image == nil)
 	{
-		image = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, 28, 28)];
+		image = [[UIImageView alloc] initWithFrame:CGRectMake(0, 0, imageSize.width, imageSize.height)];
 	}
 	if (image.superview == nil) [hud addSubview:image];
 	//---------------------------------------------------------------------------------------------------------------------------------------------
@@ -226,10 +235,11 @@
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
-- (void)hudSize
+- (void)hudSize:(CGSize)imageSize
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 {
 	CGRect labelRect = CGRectZero;
+    CGFloat offset = 12;
 	CGFloat hudWidth = 100, hudHeight = 100;
 	//---------------------------------------------------------------------------------------------------------------------------------------------
 	if (label.text != nil)
@@ -238,12 +248,15 @@
 		NSInteger options = NSStringDrawingUsesFontLeading | NSStringDrawingTruncatesLastVisibleLine | NSStringDrawingUsesLineFragmentOrigin;
 		labelRect = [label.text boundingRectWithSize:CGSizeMake(200, 300) options:options attributes:attributes context:NULL];
 
-		labelRect.origin.x = 12;
-		labelRect.origin.y = 66;
+		hudWidth = labelRect.size.width + (offset*2);
+        if (hudWidth < imageSize.width + (offset*2)) {
+            hudWidth = imageSize.width + (offset*2);
+        }
+		hudHeight = labelRect.size.height + imageSize.height;
 
-		hudWidth = labelRect.size.width + 24;
-		hudHeight = labelRect.size.height + 80;
-
+        labelRect.origin.x = (hudWidth - labelRect.size.width) / 2;
+		labelRect.origin.y = hudHeight - offset - labelRect.size.height;
+        
 		if (hudWidth < 100)
 		{
 			hudWidth = 100;
@@ -257,9 +270,10 @@
 	hud.center = CGPointMake(screen.width/2, screen.height/2);
 	hud.bounds = CGRectMake(0, 0, hudWidth, hudHeight);
 	//---------------------------------------------------------------------------------------------------------------------------------------------
-	CGFloat imagex = hudWidth/2;
-	CGFloat imagey = (label.text == nil) ? hudHeight/2 : 36;
-	image.center = spinner.center = CGPointMake(imagex, imagey);
+	CGRect imageFrame = image.frame;
+    imageFrame.origin = CGPointMake((hudWidth - imageSize.width) / 2, hudHeight - imageSize.height - offset);
+    image.frame = imageFrame;
+
 	//---------------------------------------------------------------------------------------------------------------------------------------------
 	label.frame = labelRect;
 }
@@ -268,17 +282,27 @@
 - (void)hudShow
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 {
+    // Add the motion effect
+    UIInterpolatingMotionEffect *imageMotionEffectH = [[UIInterpolatingMotionEffect alloc] initWithKeyPath:@"center.x" type:UIInterpolatingMotionEffectTypeTiltAlongHorizontalAxis];
+    imageMotionEffectH.minimumRelativeValue = @(MOTION_EFFECT_MULTIPLIER);
+    imageMotionEffectH.maximumRelativeValue = @(-MOTION_EFFECT_MULTIPLIER);
+    
+    UIInterpolatingMotionEffect *imageMotionEffectV = [[UIInterpolatingMotionEffect alloc] initWithKeyPath:@"center.y" type:UIInterpolatingMotionEffectTypeTiltAlongVerticalAxis];
+    imageMotionEffectV.minimumRelativeValue = @(-MOTION_EFFECT_MULTIPLIER);
+    imageMotionEffectV.maximumRelativeValue = @(MOTION_EFFECT_MULTIPLIER);
+    
+    UIMotionEffectGroup *imageMotionEffectGroup = [UIMotionEffectGroup new];
+    imageMotionEffectGroup.motionEffects = @[imageMotionEffectH, imageMotionEffectV];
+    [self.hud addMotionEffect:imageMotionEffectGroup];
+    
 	if (self.alpha == 0)
 	{
 		self.alpha = 1;
 
 		hud.alpha = 0;
-		hud.transform = CGAffineTransformScale(hud.transform, 1.4, 1.4);
-
 		NSUInteger options = UIViewAnimationOptionAllowUserInteraction | UIViewAnimationCurveEaseOut;
 
-		[UIView animateWithDuration:0.15 delay:0 options:options animations:^{
-			hud.transform = CGAffineTransformScale(hud.transform, 1/1.4, 1/1.4);
+		[UIView animateWithDuration:0.2f delay:0 options:options animations:^{
 			hud.alpha = 1;
 		}
 		completion:^(BOOL finished){ }];
@@ -293,8 +317,7 @@
 	{
 		NSUInteger options = UIViewAnimationOptionAllowUserInteraction | UIViewAnimationCurveEaseIn;
 
-		[UIView animateWithDuration:0.15 delay:0 options:options animations:^{
-			hud.transform = CGAffineTransformScale(hud.transform, 0.7, 0.7);
+		[UIView animateWithDuration:1.0f delay:0 options:options animations:^{
 			hud.alpha = 0;
 		}
 		completion:^(BOOL finished)
@@ -311,10 +334,7 @@
 {
 	@autoreleasepool
 	{
-		double length = label.text.length;
-		NSTimeInterval sleep = length * 0.04 + 0.5;
-		
-		[NSThread sleepForTimeInterval:sleep];
+		[NSThread sleepForTimeInterval:1.0f];
 		[self hudHide];
 	}
 }

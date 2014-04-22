@@ -66,6 +66,7 @@
 + (void)show:(NSString *)status Interaction:(BOOL)Interaction;
 
 + (void)showSuccess:(NSString *)status;
++ (void)showSuccess:(NSString *)status withImage:(UIImage*)image;
 + (void)showSuccess:(NSString *)status Interaction:(BOOL)Interaction;
 
 + (void)showError:(NSString *)status;
