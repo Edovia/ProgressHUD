@@ -252,8 +252,12 @@
         if (hudWidth < imageSize.width + (offset*2)) {
             hudWidth = imageSize.width + (offset*2);
         }
-		hudHeight = labelRect.size.height + imageSize.height;
+		hudHeight = labelRect.size.height + imageSize.height + (offset * 2);
 
+        if (hudHeight > hudWidth) {
+            hudWidth = hudHeight;
+        }
+        
         labelRect.origin.x = (hudWidth - labelRect.size.width) / 2;
 		labelRect.origin.y = hudHeight - offset - labelRect.size.height;
         
@@ -271,7 +275,7 @@
 	hud.bounds = CGRectMake(0, 0, hudWidth, hudHeight);
 	//---------------------------------------------------------------------------------------------------------------------------------------------
 	CGRect imageFrame = image.frame;
-    imageFrame.origin = CGPointMake((hudWidth - imageSize.width) / 2, hudHeight - imageSize.height - offset);
+    imageFrame.origin = CGPointMake((hudWidth - imageSize.width) / 2, offset);
     image.frame = imageFrame;
 
 	//---------------------------------------------------------------------------------------------------------------------------------------------
